@@ -38,6 +38,12 @@ def calculate_wall_height(perp_wall_dist):
     return line_height
 
 clock = pygame.time.Clock()
+def update_game():
+    """ Updates the game. """
+    pygame.event.pump()
+    pygame.display.flip()
+    pygame.display.update()
+    clock.tick(60)
 def main():
     """ Main function to run the game """
     pygame.init()
@@ -189,10 +195,7 @@ def main():
             pygame.draw.line(window, color, (columns, draw_start), (columns, draw_end),3)
             columns += 3
 
-        pygame.event.pump()
-        pygame.display.flip()
-        pygame.display.update()
-        clock.tick(60)
+        update_game()
 
 if __name__ == "__main__":
     main()

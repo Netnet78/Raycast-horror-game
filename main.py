@@ -1,8 +1,11 @@
-import pygame
-import math
-import numpy as np
-from pygame.locals import *
-import game_map
+try:
+    import pygame
+    import math
+    import numpy as np
+    from pygame.locals import *
+    import game_map
+except ImportError as e:
+    raise ImportError("Error: missing dependencies.\nError log:" + str(e))
 
 # Define color
 B_RED = (125, 22, 22)
@@ -41,7 +44,6 @@ clock = pygame.time.Clock()
 def update_game():
     """ Updates the game. """
     pygame.event.pump()
-    pygame.display.flip()
     pygame.display.update()
     clock.tick(60)
 def main():
@@ -60,9 +62,16 @@ def main():
     plane_x = 0  # Camera plane X
     plane_y = 0.66  # Camera plane Y (for FOV)
 
-    # Define movement and rotation speeds
-    move_speed = 0.1
-    rotation_speed = 0.05
+    # Initialize camera pitch
+    vertical_line = 0.0
+
+    # Define movement, mouse position and rotation speed
+    move_speed = 0.05
+    rotation_speed = 0.005
+    mouse_x = WIDTH // 2
+    mouse_y = HEIGHT // 2
+    pygame.mouse.set_pos(mouse_x, mouse_y)
+    pygame.mouse.set_visible(False)
 
     ## Main loop of the program
     while True:
@@ -73,41 +82,60 @@ def main():
 
         # Key binding
         keys = pygame.key.get_pressed()
+
         if keys[K_ESCAPE]:
             close()
             return
-        if keys[K_UP]:
+        if keys[K_w]:
+            # Move UP
             new_x = position_x + direction_x * move_speed
             new_y = position_y + direction_y * move_speed
             if world_map[int(new_y)][int(new_x)] == 0:
                 position_x, position_y = new_x, new_y
-        if keys[K_DOWN]:
+        if keys[K_s]:
+            # Move DOWN
             new_x = position_x - direction_x * move_speed
             new_y = position_y - direction_y * move_speed
             if world_map[int(new_y)][int(new_x)] == 0:
                 position_x, position_y = new_x, new_y
-        if keys[K_RIGHT]:
-            # Rotate RIGHT
+        if keys[K_d]:
+            # Move RIGHT
+            new_x = position_x - direction_y * move_speed
+            new_y = position_y + direction_x * move_speed
+            if world_map[int(new_y)][int(new_x)] == 0:
+                position_x, position_y = new_x, new_y
+        if keys[K_a]:
+            # Move LEFT
+            new_x = position_x + direction_y * move_speed
+            new_y = position_y - direction_x * move_speed
+            if world_map[int(new_y)][int(new_x)] == 0:
+                position_x, position_y = new_x, new_y
+        
+        # Handle mouse movement
+        mouse_dx, mouse_dy = pygame.mouse.get_rel()
+        if pygame.event.Event(MOUSEMOTION):
+            rotation = mouse_dx * rotation_speed  # Adjust sensitivity with the multiplier
             old_dir_x = direction_x
-            direction_x = direction_x * math.cos(rotation_speed) - direction_y * math.sin(rotation_speed)
-            direction_y = old_dir_x * math.sin(rotation_speed) + direction_y * math.cos(rotation_speed)
-            # Rotate plane
+            direction_x = direction_x * math.cos(rotation) - direction_y * math.sin(rotation)
+            direction_y = old_dir_x * math.sin(rotation) + direction_y * math.cos(rotation)
+            # Rotate plane for the camera's projection planes
             old_plane_x = plane_x
-            plane_x = plane_x * math.cos(rotation_speed) - plane_y * math.sin(rotation_speed)
-            plane_y = old_plane_x * math.sin(rotation_speed) + plane_y * math.cos(rotation_speed)
-        if keys[K_LEFT]:
-            # Rotate LEFT
-            old_dir_x = direction_x
-            direction_x = direction_x * math.cos(-rotation_speed) - direction_y * math.sin(-rotation_speed)
-            direction_y = old_dir_x * math.sin(-rotation_speed) + direction_y * math.cos(-rotation_speed)
-            # Rotate plane
-            old_plane_x = plane_x
-            plane_x = plane_x * math.cos(-rotation_speed) - plane_y * math.sin(-rotation_speed)
-            plane_y = old_plane_x * math.sin(-rotation_speed) + plane_y * math.cos(-rotation_speed)
+            plane_x = plane_x * math.cos(rotation) - plane_y * math.sin(rotation)
+            plane_y = old_plane_x * math.sin(rotation) + plane_y * math.cos(rotation)
+            # Update camera pitch to look up and down
+            vertical_line -= mouse_dy * (rotation_speed * 500)
+        
+        # Update mouse position
+        pygame.mouse.set_pos(mouse_x, mouse_y)
+        # Lock the cursor in the middle of the screen
+        pygame.event.set_grab(True)
 
         ## Raycasting Logic
-        window.fill((25, 25, 25))  # Clear the screen
-        pygame.draw.rect(window, (50,50,50), (0, HEIGHT/2, WIDTH, HEIGHT/2))  # Draw floor
+        window.fill(GRAY)  # Clear the screen
+        # Draw the floor
+        pygame.draw.rect(window, GRAY, (0, HEIGHT // 2 + vertical_line, WIDTH, HEIGHT // 2))
+        # Draw the ceiling
+        pygame.draw.rect(window, L_RED, (0, 0, WIDTH, HEIGHT // 2 + vertical_line))
 
         # Calculate ray direction for each column
         columns = 0
@@ -123,8 +151,8 @@ def main():
             map_y = int(ray_pos_y)
 
             # Delta distance
-            delta_dis_x = math.sqrt(1 + (ray_dir_y / ray_dir_x) ** 2)
-            delta_dis_y = math.sqrt(1 + (ray_dir_x / ray_dir_y) ** 2)
+            delta_dis_x = math.sqrt(1 + (ray_dir_y / (ray_dir_x + 0.000001)) ** 2)
+            delta_dis_y = math.sqrt(1 + (ray_dir_x / (ray_dir_y + 0.000001)) ** 2)
 
             # Step and initial side distance
             step_x, step_y = 0, 0
@@ -169,23 +197,20 @@ def main():
                 perp_wall_dist = abs((map_x - ray_pos_x + (1 - step_x) / 2) / ray_dir_x)
             else:
                 perp_wall_dist = abs((map_y - ray_pos_y + (1 - step_y) / 2) / ray_dir_y)
-            max_view_distance = 300 / (perp_wall_dist + 0.00001)
-            if perp_wall_dist > max_view_distance:
-                break 
             
             # Calculate the draw start and end
-            draw_start = -calculate_wall_height(perp_wall_dist) / 2 + HEIGHT / 2
-            if draw_start < 0:
-                draw_start = 0
-            draw_end = calculate_wall_height(perp_wall_dist) / 2 + HEIGHT / 2
-            if draw_end >= HEIGHT:
-                draw_end = HEIGHT - 1
+            draw_start = -calculate_wall_height(perp_wall_dist) / 2 + HEIGHT / 2 + int(vertical_line)
+            draw_end = calculate_wall_height(perp_wall_dist) / 2 + HEIGHT / 2 + int(vertical_line)
+            
+            # Clamp the draw end and draw start to screen boundaries
+            draw_start = max(0, draw_start)
+            draw_end = min(HEIGHT - 1, draw_end)
 
             # Choose the color based on the map value
             if 0 <= map_x < len(world_map[0]) and 0 <= map_y < len(world_map):
-                color = list(L_RED) if world_map[map_y][map_x] == 1 else list(M_RED)
+                color = list(BLACK) if world_map[map_y][map_x] == 1 else list(WHITE)
             else:
-                color = [25, 25, 25]  # or some other default color
+                return
 
             # Apply shadow
             if side == 1:
@@ -193,9 +218,14 @@ def main():
 
             # Draw the vertical line
             pygame.draw.line(window, color, (columns, draw_start), (columns, draw_end),3)
+
+            # Update the column
             columns += 3
 
+        pygame.draw.circle(window, WHITE, (int(mouse_x), int(mouse_y)), 5)
+
         update_game()
+        pygame.display.flip()
 
 if __name__ == "__main__":
     main()

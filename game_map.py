@@ -2,8 +2,8 @@ import numpy as np
 import random
 
 # Set the dimensions for the larger map
-map_width = 50
-map_height = 50
+map_width = 100
+map_height = 100
 
 # Generate a random map with weighted values
 # 1 and 2 for walls, 0 for paths, 3 for special items

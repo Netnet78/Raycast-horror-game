@@ -2,3 +2,4 @@ myenv
 .vscode
 __pycache__
 test.py
+sound_modifier.py

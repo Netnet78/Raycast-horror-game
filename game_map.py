@@ -16,7 +16,7 @@ for i in range(map_height):
             world_map[i][j] = random.choice([1, 2])  # Boundary walls
         else:
             # Weighted random placement: more paths than walls and obstacles
-            world_map[i][j] = random.choices([0, 1, 2, 3], [70, 10, 10, 10])[0]
+            world_map[i][j] = random.choices([0, 1, 2, 3], [80, 10, 10, 10])[0]
 
 # Print a portion of the map for reference
 def main():
